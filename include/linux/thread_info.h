@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/restart_block.h>
+#include <linux/errno.h>
 
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 /*
@@ -38,6 +39,18 @@ enum {
 #include <asm/thread_info.h>
 
 #ifdef __KERNEL__
+
+#ifndef arch_set_restart_data
+#define arch_set_restart_data(restart) do { } while (0)
+#endif
+
+static inline long set_restart_fn(struct restart_block *restart,
+					long (*fn)(struct restart_block *))
+{
+	restart->fn = fn;
+	arch_set_restart_data(restart);
+	return -ERESTART_RESTARTBLOCK;
+}
 
 #ifndef THREAD_ALIGN
 #define THREAD_ALIGN	THREAD_SIZE
@@ -97,7 +110,17 @@ static inline int test_ti_thread_flag(struct thread_info *ti, int flag)
 #define test_thread_flag(flag) \
 	test_ti_thread_flag(current_thread_info(), flag)
 
-#define tif_need_resched() test_thread_flag(TIF_NEED_RESCHED)
+#ifdef CONFIG_PREEMPT_LAZY
+#define tif_need_resched()	(test_thread_flag(TIF_NEED_RESCHED) || \
+				 test_thread_flag(TIF_NEED_RESCHED_LAZY))
+#define tif_need_resched_now()	(test_thread_flag(TIF_NEED_RESCHED))
+#define tif_need_resched_lazy()	test_thread_flag(TIF_NEED_RESCHED_LAZY))
+
+#else
+#define tif_need_resched()	test_thread_flag(TIF_NEED_RESCHED)
+#define tif_need_resched_now()	test_thread_flag(TIF_NEED_RESCHED)
+#define tif_need_resched_lazy()	0
+#endif
 
 #ifndef CONFIG_HAVE_ARCH_WITHIN_STACK_FRAMES
 static inline int arch_within_stack_frames(const void * const stack,

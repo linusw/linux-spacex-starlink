@@ -432,7 +432,6 @@ asmlinkage void secondary_start_kernel(void)
 #endif
 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
 
-	preempt_disable();
 	trace_hardirqs_off();
 
 	/*
@@ -672,9 +671,7 @@ static void do_handle_IPI(int ipinr)
 		break;
 
 	case IPI_CPU_BACKTRACE:
-		printk_nmi_enter();
 		nmi_cpu_backtrace(get_irq_regs());
-		printk_nmi_exit();
 		break;
 
 	default:
